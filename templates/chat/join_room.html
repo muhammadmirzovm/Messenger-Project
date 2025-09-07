@@ -1,0 +1,26 @@
+{% extends 'core/base.html' %}
+{% block title %}Join {{ room.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 520px;">
+  <h3 class="mb-3">Join “{{ room.name }}”</h3>
+  <p class="text-muted">{{ room.description|default:"No description" }}</p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="mb-3">
+      <label class="form-label">Nickname for this room</label>
+      {{ form.nickname }}
+      {% if form.nickname.errors %}
+        <div class="text-danger small">{{ form.nickname.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'chat_app:room_list' %}" class="btn btn-outline-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">Join Room</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

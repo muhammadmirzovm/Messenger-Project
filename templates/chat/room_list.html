@@ -1,0 +1,48 @@
+{% extends 'core/base.html' %}
+{% block title %}Chat Rooms{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Available Rooms</h2>
+    <div class="row">
+        {% for room in public_rooms %}
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        {{ room.name }}
+                        {% if room.is_private %}
+                            <span class="badge bg-warning text-dark">Private</span>
+                        {% endif %}
+                    </h5>
+                    <p class="card-text">{{ room.description|default:"No description" }}</p>
+                    <p class="mb-1">Members: {{ room.member_count }}</p>
+                    {% if room in user_rooms %}
+                        <a href="{% url 'chat_app:room_detail' room.slug %}" class="btn btn-primary">Enter Room</a>
+                    {% else %}
+                        <a href="{% url 'chat_app:join_room' room.slug %}" class="btn btn-success">Join Room</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p>No rooms available.</p>
+        {% endfor %}
+    </div>
+
+    <h2 class="mt-5">Your Rooms</h2>
+    <div class="list-group">
+        {% for room in user_rooms %}
+            <a href="{% url 'chat_app:room_detail' room.slug %}" class="list-group-item list-group-item-action">
+                {{ room.name }} {% if room.is_private %}<span class="badge bg-warning text-dark">Private</span>{% endif %}
+            </a>
+        {% empty %}
+            <p>You haven't joined any rooms yet.</p>
+        {% endfor %}
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'chat_app:create_room' %}" class="btn btn-outline-primary">Create New Room +</a>
+    </div>
+</div>
+{% endblock %}

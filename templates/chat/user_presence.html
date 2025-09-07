@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Presence</title>
+    <style>
+        .user-list { margin: 20px 0; }
+        .user-item { padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .online { background-color: #d4edda; color: #155724; }
+        .offline { background-color: #f8d7da; color: #721c24; }
+        .away { background-color: #fff3cd; color: #856404; }
+        .busy { background-color: #f1c0c7; color: #721c24; }
+        #messages { height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .status-buttons { margin: 10px 0; }
+        .status-btn { margin: 5px; padding: 8px 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>User Presence System</h1>
+    
+    <div class="status-buttons">
+        <button class="status-btn" onclick="updateStatus('online')">Online</button>
+        <button class="status-btn" onclick="updateStatus('away')">Away</button>
+        <button class="status-btn" onclick="updateStatus('busy')">Busy</button>
+    </div>
+    
+    <div id="connection-status">Connecting...</div>
+    <div id="messages"></div>
+    
+    <div class="user-list">
+        <h3>Online Users</h3>
+        <div id="online-users"></div>
+    </div>
+
+    <script>
+        let socket;
+        let reconnectInterval;
+        
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/presence/`;
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(event) {
+                console.log('✅ Connected to WebSocket');
+                document.getElementById('connection-status').innerHTML = 
+                    '<span style="color: green;">Connected</span>';
+                
+                // Clear reconnect interval if connection is successful
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+                
+                // Request online users list
+                socket.send(JSON.stringify({
+                    type: 'presence_check'
+                }));
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                console.log('📨 Received:', data);
+                
+                const messagesDiv = document.getElementById('messages');
+                const messageElement = document.createElement('div');
+                messageElement.innerHTML = `<strong>${data.type}:</strong> ${JSON.stringify(data, null, 2)}`;
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                
+                if (data.type === 'online_users') {
+                    updateOnlineUsersList(data.users);
+                }
+            };
+            
+            socket.onclose = function(event) {
+                console.log('❌ WebSocket connection closed');
+                document.getElementById('connection-status').innerHTML = 
+                    '<span style="color: red;">Disconnected - Attempting to reconnect...</span>';
+                
+                // Attempt to reconnect every 3 seconds
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(connectWebSocket, 3000);
+                }
+            };
+            
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function updateStatus(status) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'status_update',
+                    status: status
+                }));
+            }
+        }
+        
+        function updateOnlineUsersList(users) {
+            const usersList = document.getElementById('online-users');
+            usersList.innerHTML = '';
+            
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'user-item online';
+                userElement.textContent = user.username;
+                usersList.appendChild(userElement);
+            });
+        }
+        
+        // Heartbeat to keep connection alive
+        function startHeartbeat() {
+            setInterval(() => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'ping'
+                    }));
+                }
+            }, 30000); // Every 30 seconds
+        }
+        
+        // Initialize connection
+        connectWebSocket();
+        startHeartbeat();
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                updateStatus('away');
+            } else {
+                updateStatus('online');
+            }
+        });
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (socket) {
+                socket.close();
+            }
+        });
+    </script>
+</body>
+</html>

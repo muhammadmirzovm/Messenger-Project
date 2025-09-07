@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      crossorigin="anonymous"
+    />
+    <title>{% block title %}{% endblock title %}</title>
+    <style>
+      .connection-status {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+      .status-connected { background-color: #28a745; }
+      .status-disconnected { background-color: #dc3545; }
+      .status-connecting { background-color: #ffc107; }
+    </style>
+
+    {% block head_extra %}{% endblock head_extra %}
+  </head>
+  <body>
+
+    {# ==== NAVBAR (can be overridden to disappear) ==== #}
+    {% block navbar %}
+    <nav class="navbar bg-body-tertiary">
+      <div class="container-fluid">
+        <a href="{% url 'home' %}" class="navbar-brand">Chat messenger</a>
+
+        {% if user.is_authenticated %}
+        <div class="d-inline-flex align-items-center gap-3">
+          <span class="fw-bold text-dark">Welcome {{ user.username|title }}</span>
+
+          <!-- Online users dropdown -->
+          <div class="dropdown">
+            <button
+              class="btn btn-success dropdown-toggle d-flex align-items-center"
+              type="button"
+              id="onlineUsersDropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <span id="connection-status" class="connection-status status-connecting"></span>
+              Online: <span id="online-count">0</span>
+            </button>
+            <ul class="dropdown-menu" id="online-users-list">
+              <li><span class="dropdown-item text-muted">No users online</span></li>
+            </ul>
+          </div>
+
+          <form action="{% url 'logout' %}" method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">Logout</button>
+          </form>
+        </div>
+        {% else %}
+        <a class="btn btn-outline-secondary" href="{% url 'signup' %}">Sign Up</a>
+        {% endif %}
+      </div>
+    </nav>
+    {% endblock navbar %}
+
+    {# ==== MAIN PAGE CONTENT ==== #}
+    {% block content %}{% endblock content %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+
+    {# ==== NAVBAR SCRIPT (can be disabled by overriding this block) ==== #}
+    {% block navbar_scripts %}
+    {% if user.is_authenticated %}
+    <script>
+      let socket;
+      let reconnectInterval;
+      const statusIndicator = document.getElementById("connection-status");
+      const onlineCountElement = document.getElementById("online-count");
+      const onlineUsersList = document.getElementById("online-users-list");
+
+      function updateConnectionStatus(status) {
+        if (statusIndicator) {
+          statusIndicator.className = `connection-status status-${status}`;
+        }
+      }
+
+      function connectWebSocket() {
+        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const socketUrl = protocol + window.location.host + "/ws/presence/";
+
+        updateConnectionStatus("connecting");
+        socket = new WebSocket(socketUrl);
+
+        socket.onmessage = function (event) {
+          const data = JSON.parse(event.data);
+
+          if (data.type === "online_count") {
+            if (onlineCountElement) onlineCountElement.textContent = data.count || 0;
+
+            if (onlineUsersList) {
+              onlineUsersList.innerHTML = "";
+              if (data.users && data.users.length > 0) {
+                data.users.forEach(u => {
+                  const li = document.createElement("li");
+                  li.innerHTML = `<span class="dropdown-item">${u}</span>`;
+                  onlineUsersList.appendChild(li);
+                });
+              } else {
+                onlineUsersList.innerHTML = `<li><span class="dropdown-item text-muted">No users online</span></li>`;
+              }
+            }
+          }
+        };
+
+        socket.onopen = function () {
+          updateConnectionStatus("connected");
+          if (reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+          // Ask for immediate snapshot
+          socket.send(JSON.stringify({ type: "get_online_count" }));
+        };
+
+        socket.onclose = function () {
+          updateConnectionStatus("disconnected");
+          if (!reconnectInterval) {
+            reconnectInterval = setInterval(connectWebSocket, 3000);
+          }
+        };
+
+        socket.onerror = function () {
+          updateConnectionStatus("disconnected");
+        };
+      }
+
+      // Only connect if the navbar elements are present (i.e., navbar rendered)
+      if (document.getElementById("onlineUsersDropdown")) {
+        connectWebSocket();
+
+        // keepalive ping
+        setInterval(() => {
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 30000);
+
+        window.addEventListener("beforeunload", function () {
+          if (socket) socket.close();
+        });
+      }
+    </script>
+    {% endif %}
+    {% endblock navbar_scripts %}
+
+    {% block body_extra %}{% endblock body_extra %}
+  </body>
+</html>
