@@ -116,14 +116,24 @@ socket.onmessage = (event) => {
   }
 };
 
-// Send chat on Enter key
-chatInput.addEventListener('keypress', function(e) {
-  if (e.key === 'Enter' && chatInput.value.trim() !== "") {
+const chatSend = document.getElementById('chat-send');
+
+function sendMessage() {
+  if (chatInput.value.trim() !== "") {
     socket.send(JSON.stringify({
       type: "chat_message",
       message: chatInput.value.trim()
     }));
     chatInput.value = '';
+  }
+}
+
+chatSend.addEventListener('click', sendMessage);
+
+// keep enter key functionality too
+chatInput.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    sendMessage();
   }
 });
 </script>
