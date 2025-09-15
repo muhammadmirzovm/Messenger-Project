@@ -22,7 +22,7 @@ urlpatterns = [
     path('users/', include('accounts_app.urls')),
     path('', include('core.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
-    path('chat/', include('chat_app.urls')),
+    path('', include('chat_app.urls')),
 
 ]
 
