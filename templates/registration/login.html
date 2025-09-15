@@ -1,11 +1,79 @@
 {% extends 'core/base.html' %}
 {% load crispy_forms_tags %}
 {% block title %}Login{% endblock title %}
+
 {% block content %}
-<form class="container border p-5 rounded border-dark" action="" method="post">
-    <h1 class="text-center">Login</h1>
-    {% csrf_token %}
-     {{ form|crispy }}
-    <button type="submit">Login</button>
+<style>
+  /* Inline styles; no staticfiles */
+  .pw-field { position: relative; }
+  .pw-field input[type="password"],
+  .pw-field input[type="text"] { padding-right: 2.5rem; } /* room for the eye */
+  .pw-toggle {
+    position: absolute; right: .5rem; top: 50%;
+    transform: translateY(-50%);
+    border: 0; background: transparent; cursor: pointer; padding: .25rem;
+  }
+  .pw-toggle svg { width: 1.1rem; height: 1.1rem; vertical-align: middle; }
+  /* swap icons */
+  .pw-toggle[data-showing="true"] .icon-eye { display: none; }
+  .pw-toggle[data-showing="true"] .icon-eye-off { display: inline; }
+  .pw-toggle .icon-eye-off { display: none; }
+</style>
+
+<form class="container border p-5 rounded border-dark" method="post">
+  <h1 class="text-center">Login</h1>
+  {% csrf_token %}
+  {{ form|crispy }}
+  <button type="submit">Login</button>
 </form>
+
+<script>
+  // Inline JS; no staticfiles
+  (function () {
+    function makeToggleFor(input) {
+      // Avoid double-wrapping
+      if (input.closest('.pw-field')) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'pw-field';
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pw-toggle';
+      btn.setAttribute('aria-label', 'Show password');
+      btn.setAttribute('data-showing', 'false');
+      btn.innerHTML = `
+        <!-- eye icon -->
+        <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <!-- eye-off icon -->
+        <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94"/>
+          <path d="M1 1l22 22"/>
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+          <path d="M14.12 9.88 9.88 14.12"/>
+        </svg>
+      `;
+      wrap.appendChild(btn);
+
+      btn.addEventListener('click', () => {
+        const showing = btn.getAttribute('data-showing') === 'true';
+        input.type = showing ? 'password' : 'text';
+        btn.setAttribute('data-showing', String(!showing));
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      });
+    }
+
+    // Handle all password inputs on the page (crispy renders id_password, id_password1, id_password2, etc.)
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('input[type="password"]').forEach(makeToggleFor);
+    });
+  })();
+</script>
 {% endblock content %}
